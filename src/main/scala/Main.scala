@@ -14,19 +14,20 @@ object Main extends ZIOAppDefault {
     .collectRight
     .map(_.copy(timestamp = System.currentTimeMillis() / 1000))
 
-  private val dataProcessingIO: ZIO[Ref[State], Throwable, Unit] = for {
-    ref <- ZIO.service[Ref[State]]
-    _   <- dataInputStream.foreach(updateWindow(_, ref))
+  private val dataProcessingIO: ZIO[State, Throwable, Unit] = for {
+    state <- ZIO.service[State]
+    _     <- dataInputStream.foreach(updateWindow(_, state.windowRef))
   } yield ()
-  private val serverIO: ZIO[Ref[State], Throwable, Unit] = Server.stream.runDrain
-  private val mainIO                                     = dataProcessingIO.zipPar(serverIO)
-  private val dependencies                               = ZLayer(Ref.make(State()))
+  private val serverIO: ZIO[State, Throwable, Unit] = Server.stream.runDrain
+  private val mainIO                                = dataProcessingIO.zipPar(serverIO)
+  private val dependencies                          = ZLayer(Ref.make(Seq.empty[Data]).map(State))
 
   def run: Task[Unit] = mainIO.provide(dependencies)
 
-  private def updateWindow(newData: Data, ref: Ref[State]): Task[Unit] = for {
-    _        <- ref.update(Service.updateState(newData, _))
-    newState <- ref.get
+  private def updateWindow(newData: Data, ref: Ref[Seq[Data]]): Task[Unit] = for {
+    newState <- ref.modify(state => tupled(Service.updateState(newData, state)))
     _        <- printLine(s"$newData, state: $newState")
   } yield ()
+
+  private def tupled[A](a: A): (A, A) = (a, a)
 }

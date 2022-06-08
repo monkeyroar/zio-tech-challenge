@@ -1,6 +1,6 @@
 package com.daniel
 
-import Domain.State
+import Domain.{Data, State}
 
 import org.http4s.HttpRoutes
 import org.http4s.blaze.server.BlazeServerBuilder
@@ -16,17 +16,17 @@ import scala.language.higherKinds
 
 object Server {
 
-  def stream: ZStream[Ref[State], Throwable, Nothing] = for {
-    ref <- ZStream.service[Ref[State]]
+  def stream: ZStream[State, Throwable, Nothing] = for {
+    state <- ZStream.service[State]
     server <- BlazeServerBuilder[Task]
       .bindHttp(8080, "0.0.0.0")
-      .withHttpApp(wordCountRoute(ref).orNotFound)
+      .withHttpApp(wordCountRoute(state.windowRef).orNotFound)
       .serve
       .drain
       .toZStream()
   } yield server
 
-  private def wordCountRoute(state: Ref[State]): HttpRoutes[Task] = {
+  private def wordCountRoute(state: Ref[Seq[Data]]): HttpRoutes[Task] = {
     val dsl = new Http4sDsl[Task] {}
     import dsl._
     HttpRoutes.strict[Task] { case GET -> Root =>

@@ -1,6 +1,7 @@
 package com.daniel
 
 import io.circe.generic.extras.{Configuration, ConfiguredJsonCodec}
+import zio.Ref
 
 object Domain {
 
@@ -8,5 +9,5 @@ object Domain {
 
   @ConfiguredJsonCodec case class Data(eventType: String, data: String, timestamp: Long)
 
-  case class State(window: Seq[Data] = Seq())
+  case class State(windowRef: Ref[Seq[Data]])
 }
